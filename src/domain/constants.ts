@@ -11,6 +11,7 @@ export const TOP_LEVEL_FILES = new Set([
   "settings.json",
   "keybindings.json",
   "models.json",
+  "mcp.json",
   "AGENTS.md",
 ]);
 

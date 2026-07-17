@@ -187,6 +187,7 @@ The extension syncs allowlisted files from `~/.pi/agent` into the root of the co
 settings.json
 keybindings.json
 models.json
+mcp.json
 AGENTS.md
 skills/
 prompts/
@@ -194,7 +195,7 @@ themes/
 extensions/
 ```
 
-It excludes `.env*`, `node_modules`, `.git`, `.pisync`, `pi-sync.json`, and paths containing `secret` or `token`, and it refuses to push common API-key patterns. `/pisync diff` and confirmation prompts use textual `git diff --no-index` output between remote files and local files.
+It excludes `.env*`, `node_modules`, `.git`, `.pisync`, `pi-sync.json`, and paths containing `secret` or `token`, and it refuses to push common API-key patterns. Keep credentials and OAuth state out of `mcp.json`; reference environment variables instead. `/pisync diff` and confirmation prompts use textual `git diff --no-index` output between remote files and local files.
 
 ## Safety
 
