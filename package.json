@@ -1,6 +1,6 @@
 {
   "name": "@dbaida/pi-sync",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Git-backed Pi extension for syncing agent settings, skills, prompts, themes, and extensions across machines.",
   "type": "module",
   "packageManager": "yarn@4.16.0",
@@ -25,7 +25,8 @@
     "configuration",
     "skills",
     "prompts",
-    "themes"
+    "themes",
+    "plannotator"
   ],
   "files": [
     "src",

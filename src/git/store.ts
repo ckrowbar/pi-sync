@@ -5,6 +5,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 import {
+  EXTERNAL_FILES,
   TOP_LEVEL_DIRS,
   TOP_LEVEL_FILES,
   VERSION,
@@ -258,5 +259,5 @@ export class GitStore {
  * Return root-level Git pathspecs managed by pi-sync.
  */
 export function syncPathspecs(): string[] {
-  return [...TOP_LEVEL_FILES, ...TOP_LEVEL_DIRS];
+  return [...TOP_LEVEL_FILES, ...TOP_LEVEL_DIRS, ...EXTERNAL_FILES];
 }

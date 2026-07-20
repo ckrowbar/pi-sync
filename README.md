@@ -181,18 +181,22 @@ Common states:
 
 ## What is synced
 
-The extension syncs allowlisted files from `~/.pi/agent` into the root of the configured Git repo:
+The extension syncs allowlisted Pi and Plannotator config files into the root of the configured Git repo:
 
 ```text
 settings.json
 keybindings.json
 models.json
 AGENTS.md
+plannotator.json
 skills/
 prompts/
 themes/
 extensions/
+.plannotator/config.json
 ```
+
+`plannotator.json` maps to `~/.pi/agent/plannotator.json` for phase prompts and orchestrator behavior. `.plannotator/config.json` maps to `~/.plannotator/config.json` for review and annotation feedback templates.
 
 It excludes `.env*`, `node_modules`, `.git`, `.pisync`, `pi-sync.json`, and paths containing `secret` or `token`, and it refuses to push common API-key patterns. `/pisync diff` and confirmation prompts use textual `git diff --no-index` output between remote files and local files.
 
