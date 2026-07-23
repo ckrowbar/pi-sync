@@ -13,6 +13,7 @@ export const TOP_LEVEL_FILES = new Set([
   "models.json",
   "mcp.json",
   "AGENTS.md",
+  "plannotator.json",
 ]);
 
 export const TOP_LEVEL_DIRS = new Set([
@@ -21,6 +22,8 @@ export const TOP_LEVEL_DIRS = new Set([
   "themes",
   "extensions",
 ]);
+
+export const EXTERNAL_FILES = new Set([".plannotator/config.json"]);
 
 export const SECRET_PATTERNS = [
   /AWS_SECRET_ACCESS_KEY\s*[=:]\s*['"]?[A-Za-z0-9/+]{35,}/i,

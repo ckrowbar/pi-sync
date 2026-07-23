@@ -60,6 +60,13 @@ export function stateDir(): string {
 }
 
 /**
+ * Return the Plannotator user configuration file path.
+ */
+export function plannotatorConfigPath(): string {
+  return path.join(os.homedir(), ".plannotator", "config.json");
+}
+
+/**
  * Return the local clone directory.
  */
 export function repoDir(): string {
