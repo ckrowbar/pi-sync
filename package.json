@@ -1,18 +1,18 @@
 {
   "name": "@dbaida/pi-sync",
-  "version": "1.0.1",
+  "version": "1.0.2-mcp.1",
   "description": "Git-backed Pi extension for syncing agent settings, skills, prompts, themes, and extensions across machines.",
   "type": "module",
   "packageManager": "yarn@4.16.0",
   "license": "MIT",
   "author": "Dmytro Baida",
-  "homepage": "https://github.com/dmytrobaida/pi-sync#readme",
+  "homepage": "https://github.com/ckrowbar/pi-sync#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dmytrobaida/pi-sync.git"
+    "url": "git+https://github.com/ckrowbar/pi-sync.git"
   },
   "bugs": {
-    "url": "https://github.com/dmytrobaida/pi-sync/issues"
+    "url": "https://github.com/ckrowbar/pi-sync/issues"
   },
   "keywords": [
     "pi",
@@ -25,7 +25,8 @@
     "configuration",
     "skills",
     "prompts",
-    "themes"
+    "themes",
+    "plannotator"
   ],
   "files": [
     "src",

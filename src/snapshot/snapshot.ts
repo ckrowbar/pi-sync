@@ -4,19 +4,29 @@ import os from "node:os";
 import path from "node:path";
 
 import {
+  EXTERNAL_FILES,
   SECRET_PATTERNS,
   TOP_LEVEL_DIRS,
   TOP_LEVEL_FILES,
   VERSION,
 } from "../domain/constants.js";
 import type { Snapshot, SnapshotFile } from "../domain/types.js";
-import { agentDir, posixJoin, safeJoin, toPosix } from "../utils/path-utils.js";
+import {
+  agentDir,
+  plannotatorConfigPath,
+  posixJoin,
+  safeJoin,
+  toPosix,
+} from "../utils/path-utils.js";
 
 /**
  * Create a snapshot from the local Pi agent configuration.
  */
 export async function createSnapshot(): Promise<Snapshot> {
   const files = await collectFiles(agentDir());
+
+  await addExternalFiles(files);
+  files.sort((left, right) => left.path.localeCompare(right.path));
 
   return {
     version: VERSION,
@@ -183,13 +193,57 @@ async function addFile(
     return;
   }
 
-  const content = await fs.readFile(safeJoin(root, relativePath));
+  await addAbsoluteFile(results, safeJoin(root, relativePath), relativePath);
+}
+
+async function addExternalFiles(results: SnapshotFile[]): Promise<void> {
+  for (const syncPath of EXTERNAL_FILES) {
+    await addOptionalAbsoluteFile(
+      results,
+      localPathForExternalSyncPath(syncPath),
+      syncPath,
+    );
+  }
+}
+
+async function addOptionalAbsoluteFile(
+  results: SnapshotFile[],
+  filePath: string,
+  syncPath: string,
+): Promise<void> {
+  try {
+    await addAbsoluteFile(results, filePath, syncPath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
+  }
+}
+
+async function addAbsoluteFile(
+  results: SnapshotFile[],
+  filePath: string,
+  syncPath: string,
+): Promise<void> {
+  if (isDeniedPath(syncPath)) {
+    return;
+  }
+
+  const content = await fs.readFile(filePath);
 
   results.push({
-    path: relativePath,
+    path: syncPath,
     contentBase64: content.toString("base64"),
     sha256: hashBuffer(content),
   });
+}
+
+function localPathForExternalSyncPath(syncPath: string): string {
+  if (syncPath === ".plannotator/config.json") {
+    return plannotatorConfigPath();
+  }
+
+  throw new Error(`Unsupported external sync path: ${syncPath}`);
 }
 
 async function materializeFile(

@@ -1,20 +1,40 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import {
+  EXTERNAL_FILES,
+  TOP_LEVEL_DIRS,
+  TOP_LEVEL_FILES,
+} from "../domain/constants.js";
 import type { Snapshot } from "../domain/types.js";
-import { agentDir, safeJoin, toPosix } from "../utils/path-utils.js";
+import {
+  agentDir,
+  plannotatorConfigPath,
+  safeJoin,
+  toPosix,
+} from "../utils/path-utils.js";
 import { createSnapshot, decodeBase64Strict, hashBuffer } from "./snapshot.js";
 
+type SnapshotWrite = {
+  target: string;
+  content: Buffer;
+};
+
+type SnapshotMutationPlan = {
+  writes: SnapshotWrite[];
+  deletes: string[];
+};
+
 /**
+ * Apply a validated snapshot to all local pi-sync managed paths.
  *
- * @param snapshot
+ * @param snapshot Snapshot to apply locally.
  */
 export async function applySnapshot(snapshot: Snapshot): Promise<void> {
-  const root = agentDir();
   const current = await createSnapshot();
-  const plan = preflightSnapshotApply(root, snapshot, current);
+  const plan = preflightSnapshotApply(agentDir(), snapshot, current);
 
-  await preflightSnapshotMutations(root, plan);
+  await preflightSnapshotMutations(plan);
 
   for (const target of plan.deletes) {
     await fs.rm(target, { force: true, recursive: true });
@@ -36,7 +56,7 @@ export function preflightSnapshotApply(
   root: string,
   snapshot: Snapshot,
   current: Snapshot,
-): { writes: { target: string; content: Buffer }[]; deletes: string[] } {
+): SnapshotMutationPlan {
   const remotePaths = new Set<string>();
   const writes = snapshot.files.map((file) => {
     const normalized = validateSnapshotPath(file.path, remotePaths);
@@ -46,24 +66,23 @@ export function preflightSnapshotApply(
       throw new Error(`Checksum mismatch in snapshot file: ${normalized}`);
     }
 
-    return { target: safeJoin(root, normalized), content };
+    return { target: syncPathToLocalPath(root, normalized), content };
   });
 
   return { writes, deletes: staleLocalPaths(root, current, remotePaths) };
 }
 
 async function preflightSnapshotMutations(
-  root: string,
-  plan: { deletes: string[]; writes: { target: string; content: Buffer }[] },
+  plan: SnapshotMutationPlan,
 ): Promise<void> {
   const deletePaths = new Set(plan.deletes);
 
   for (const target of plan.deletes) {
-    await assertNoSymlinkParents(root, target);
+    await assertNoSymlinkParents(target);
   }
 
   for (const item of plan.writes) {
-    await prepareSnapshotWrite(root, item.target, deletePaths);
+    await prepareSnapshotWrite(item.target, deletePaths);
   }
 }
 
@@ -76,7 +95,8 @@ function validateSnapshotPath(
   if (
     normalized === "" ||
     normalized.startsWith("../") ||
-    path.posix.isAbsolute(normalized)
+    path.posix.isAbsolute(normalized) ||
+    !isManagedSyncPath(normalized)
   ) {
     throw new Error(`Unsafe path in snapshot: ${pathValue}`);
   }
@@ -101,12 +121,12 @@ function staleLocalPaths(
     const normalized = toPosix(file.path);
 
     if (!remotePaths.has(normalized)) {
-      deletePaths.add(safeJoin(root, normalized));
+      deletePaths.add(syncPathToLocalPath(root, normalized));
     }
 
     for (const remotePath of remotePaths) {
       if (normalized.startsWith(`${remotePath}/`)) {
-        deletePaths.add(safeJoin(root, remotePath));
+        deletePaths.add(syncPathToLocalPath(root, remotePath));
       }
     }
   }
@@ -115,11 +135,10 @@ function staleLocalPaths(
 }
 
 async function prepareSnapshotWrite(
-  root: string,
   target: string,
   deletePaths: Set<string>,
 ): Promise<void> {
-  await ensureSafeDirectory(root, path.dirname(target));
+  await ensureSafeDirectory(path.dirname(target));
 
   try {
     const stat = await fs.lstat(target);
@@ -142,13 +161,11 @@ async function prepareSnapshotWrite(
   }
 }
 
-async function ensureSafeDirectory(
-  root: string,
-  directory: string,
-): Promise<void> {
-  const rootPath = path.resolve(root);
-  const relative = path.relative(rootPath, path.resolve(directory));
-  let current = rootPath;
+async function ensureSafeDirectory(directory: string): Promise<void> {
+  const resolvedDirectory = path.resolve(directory);
+  const root = managedRootForPath(resolvedDirectory);
+  const relative = path.relative(root, resolvedDirectory);
+  let current = root;
 
   safeJoin(root, relative);
 
@@ -180,13 +197,11 @@ async function ensureDirectorySegment(current: string): Promise<void> {
   }
 }
 
-async function assertNoSymlinkParents(
-  root: string,
-  target: string,
-): Promise<void> {
-  const rootPath = path.resolve(root);
-  const relative = path.relative(rootPath, path.resolve(target));
-  let current = rootPath;
+async function assertNoSymlinkParents(target: string): Promise<void> {
+  const resolvedTarget = path.resolve(target);
+  const root = managedRootForPath(resolvedTarget);
+  const relative = path.relative(root, resolvedTarget);
+  let current = root;
 
   safeJoin(root, relative);
 
@@ -216,4 +231,40 @@ async function assertNoSymlinkParents(
       throw error;
     }
   }
+}
+
+function syncPathToLocalPath(root: string, syncPath: string): string {
+  if (
+    syncPath === ".plannotator/config.json" &&
+    path.resolve(root) === path.resolve(agentDir())
+  ) {
+    return plannotatorConfigPath();
+  }
+
+  return safeJoin(root, syncPath);
+}
+
+function isManagedSyncPath(syncPath: string): boolean {
+  const firstSegment = syncPath.split("/")[0] ?? "";
+
+  return (
+    TOP_LEVEL_FILES.has(syncPath) ||
+    TOP_LEVEL_DIRS.has(firstSegment) ||
+    EXTERNAL_FILES.has(syncPath)
+  );
+}
+
+function managedRootForPath(target: string): string {
+  const roots = [agentDir(), path.dirname(plannotatorConfigPath())].map(
+    (item) => path.resolve(item),
+  );
+  const root = roots.find(
+    (item) => target === item || target.startsWith(`${item}${path.sep}`),
+  );
+
+  if (root == null) {
+    throw new Error(`Unsafe path in snapshot: ${target}`);
+  }
+
+  return root;
 }
